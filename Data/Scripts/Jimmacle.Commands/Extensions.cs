@@ -49,7 +49,7 @@
         {
             if (MyAPIGateway.Session.Player != null)
             {
-                util.ShowMissionScreen(title, null, null, body);
+                util.ShowMissionScreen(title, "", "", body);
                 return true;
             }
             else
@@ -65,7 +65,7 @@
         /// <returns></returns>
         public static byte[] GetBytes(this string str)
         {
-            byte[] bytes = new byte[str.Length * sizeof(char)];
+            byte[] bytes = new byte[str.Length];
             for (int i = 0; i < str.Length; i++)
             {
                 bytes[i] = (byte)str[i];
@@ -98,9 +98,9 @@
         {
             if (player.IsAdmin())
                 return true;
-            if (Storage.Data.Perms.List.Count == 0)
+            if (Storage.Data.Perms.Groups.Count == 0)
                 return true;
-            if (Storage.Data.Perms.List.Find(g => g.Members.Contains(player) && g.Commands.Contains(command)) != null)
+            if (Storage.Data.Perms.Groups.Find(g => g.Members.Contains(player.PlayerID) && g.Commands.Contains(command.Name)) != null)
                 return true;
 
             return false;

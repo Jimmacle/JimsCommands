@@ -14,7 +14,7 @@
         {
             bool add;
 
-            if (Storage.Data== null)
+            if (Storage.Data == null)
             {
                 MyAPIGateway.Utilities.TryShowMessage("", "Created new storage instance");
                 Storage.Data = new Data();
@@ -23,17 +23,17 @@
             if (parameters.Count == 1)
             {
                 string str = "";
-                foreach (var g in Storage.Data.Perms.List)
+                foreach (var g in Storage.Data.Perms.Groups)
                 {
                     str += g.Name + ":\n- Commands:\n";
                     foreach (var c in g.Commands)
                     {
-                        str += "- - " + c.Name + "\n";
+                        str += "- - " + c + "\n";
                     }
                     str += "- Members:\n";
                     foreach (var m in g.Members)
                     {
-                        str += "- - " + m.DisplayName + "\n";
+                        str += "- - " + m.ToString() + "\n";
                     }
                     str += "\n";
                 }
@@ -67,14 +67,14 @@
                     return "Not enough parameters.";
                 }
 
-                PermissionGroup group = Storage.Data.Perms.List.Find(g => g.Name == parameters[3]);
-                if (group == null && add == true)
+                PermissionGroup group = Storage.Data.Perms.Groups.Find(g => g.Name == parameters[3]);
+                if (group == null && add == true && Storage.Data.Perms.Groups.Find(g => g.Name == parameters[3]) == null)
                 {
-                    Storage.Data.Perms.List.Add(new PermissionGroup(parameters[3]));
+                    Storage.Data.Perms.Groups.Add(new PermissionGroup(parameters[3]));
                 }
                 else if (group != null && add == false)
                 {
-                    Storage.Data.Perms.List.Remove(group);
+                    Storage.Data.Perms.Groups.Remove(group);
                 }
             }
             if (parameters.Contains("command"))
@@ -85,7 +85,7 @@
                 }
 
                 ChatCommand command = Logic.Commands.Find(c => c.Name == parameters[3]);
-                PermissionGroup group = Storage.Data.Perms.List.Find(g => g.Name == parameters[4]);
+                PermissionGroup group = Storage.Data.Perms.Groups.Find(g => g.Name == parameters[4]);
                 if (command == null)
                 {
                     return "Command not found.";
@@ -96,13 +96,13 @@
                     return "Group not found.";
                 }
 
-                if (add == true)
+                if (add == true && !group.Commands.Contains(command.Name))
                 {
-                    group.Commands.Add(command);
+                    group.Commands.Add(command.Name);
                 }
                 else if (add == false)
                 {
-                    group.Commands.RemoveAll(c => c == command);
+                    group.Commands.RemoveAll(c => c == command.Name);
                 }
             }
             if (parameters.Contains("player"))
@@ -112,10 +112,10 @@
                     return "Not enough parameters.";
                 }
 
-                List<IMyPlayer> players = new List<IMyPlayer>(); 
-                MyAPIGateway.Multiplayer.Players.GetPlayers(players);
-                IMyPlayer id = players.Find(p => p.DisplayName == parameters[3]);
-                PermissionGroup group = Storage.Data.Perms.List.Find(g => g.Name == parameters[4]);
+                List<IMyIdentity> players = new List<IMyIdentity>();
+                MyAPIGateway.Multiplayer.Players.GetAllIdentites(players);
+                IMyIdentity id = players.Find(i => i.DisplayName == parameters[3]);
+                PermissionGroup group = Storage.Data.Perms.Groups.Find(g => g.Name == parameters[4]);
                 if (id == null)
                 {
                     return "Player not found.";
@@ -126,16 +126,17 @@
                     return "Group not found.";
                 }
 
-                if (add == true)
+                if (add == true && !group.Members.Contains(id.IdentityId))
                 {
-                    group.Members.Add(id);
+                    group.Members.Add(id.IdentityId);
                 }
                 else if (add == false)
                 {
-                    group.Members.RemoveAll(i => i == id);
+                    group.Members.RemoveAll(i => i == id.IdentityId);
                 }
             }
 
+            Network.SendMessage(new NetMessage(NetCommand.SyncPermissions, MyAPIGateway.Utilities.SerializeToXML<PermissionGroups>(Storage.Data.Perms)));
             return null;
         }
     }

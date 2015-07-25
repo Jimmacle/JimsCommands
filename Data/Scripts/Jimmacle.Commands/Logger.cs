@@ -35,5 +35,13 @@
             writer.Flush();
             writer.Close();
         }
+
+        public static void Clear(string name)
+        {
+            TextWriter writer = MyAPIGateway.Utilities.WriteFileInGlobalStorage("JimsCommands_" + name);
+            writer.Write("");
+            writer.Flush();
+            writer.Close();
+        }
     }
 }

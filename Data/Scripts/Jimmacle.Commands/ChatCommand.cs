@@ -1,4 +1,5 @@
 ﻿//This file contains the base class used to write commands
+//
 
 using System.Collections.Generic;
 namespace Jimmacle.Commands
@@ -6,7 +7,7 @@ namespace Jimmacle.Commands
     public class ChatCommand
     {
         /// <summary>
-        /// Full "friendly" name of command ex. "Delete Grid"
+        /// Full name of command; used in permissions.
         /// </summary>
         public string Name { get; private set; }
 
@@ -25,22 +26,22 @@ namespace Jimmacle.Commands
         /// </summary>
         public string LongHelp { get; private set; }
 
+        /// <summary>
+        /// Contains the code executed when the command is invoked.
+        /// </summary>
+        /// <param name="parameters">Parts of the inputted command</param>
+        /// <returns>Null on success, error message on fail.</returns>
+        public virtual string Invoke(List<string> parameters)
+        {
+            return "";
+        }
+
         public ChatCommand(string name, string command, string shortHelp = "No documentation found", string longHelp = "")
         {
             Name = name;
             Command = command;
             ShortHelp = shortHelp;
             LongHelp = longHelp == "" ? shortHelp : longHelp;
-        }
-
-        /// <summary>
-        /// Contains the code executed when the command is invoked.
-        /// </summary>
-        /// <param name="fullCommand">Original chat message</param>
-        /// <returns>Command executed successfully?</returns>
-        public virtual string Invoke(List<string> parameters)
-        {
-            return "";
         }
     }
 }

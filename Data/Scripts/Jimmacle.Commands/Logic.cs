@@ -25,12 +25,13 @@
         /// </summary>
         public static List<ChatCommand> Commands = new List<ChatCommand>()
         {
-            new cmdPerms()
+            new cmdPerms(),
+            new cmdAntigrief(),
         };
 
         private bool init = false;
-        private bool server;
-        private bool online;
+        public static bool IsServer;
+        public static bool IsOnline;
 
         /// <summary>
         /// Command parser
@@ -100,40 +101,74 @@
             {
                 init = true;
                 Storage.Load();
-                //decide if this is a server or client
-                //
-                if (MyAPIGateway.Session.Player == null)
-                {
-                    server = true;
-                    MyAPIGateway.Multiplayer.RegisterMessageHandler(65535, Network.MessageHandler);
-                }
-                else
-                {
-                    server = false;
-                    MyAPIGateway.Multiplayer.RegisterMessageHandler(65534, Network.MessageHandler);
-                    MyAPIGateway.Utilities.MessageEntered += MessageEntered;
-                }
 
-                //some commands work differently online vs offline
+                //initialize depending on instance type
                 //
                 if (MyAPIGateway.Session.OnlineMode == MyOnlineModeEnum.OFFLINE)
                 {
-                    online = false;
+                    IsServer = true;
+                    IsOnline = false;
+                    MyAPIGateway.Utilities.MessageEntered += MessageEntered;
+                    Logger.WriteLine("Log.txt", "Detected offline game");
                 }
                 else
                 {
-                    online = true;
+                    IsOnline = true;
+
+                    //indicates dedicated server
+                    //
+                    if (MyAPIGateway.Session.Player == null)
+                    {
+                        IsServer = true;
+                        MyAPIGateway.Multiplayer.RegisterMessageHandler(Network.SERVER_MSG_ID, Network.MessageHandler);
+                        Logger.WriteLine("Log.txt", "Detected dedicated server");
+                    }
+                    //indicates host of game
+                    //
+                    else if (MyAPIGateway.Multiplayer.IsServerPlayer(MyAPIGateway.Session.Player.Client))
+                    {
+                        IsServer = true;
+                        MyAPIGateway.Multiplayer.RegisterMessageHandler(Network.SERVER_MSG_ID, Network.MessageHandler);
+                        MyAPIGateway.Multiplayer.RegisterMessageHandler(Network.CLIENT_MSG_ID, Network.MessageHandler);
+                        MyAPIGateway.Utilities.MessageEntered += MessageEntered;
+                        Logger.WriteLine("Log.txt", "Detected host of game");
+                    }
+                    //assume client
+                    else
+                    {
+                        IsServer = false;
+                        MyAPIGateway.Multiplayer.RegisterMessageHandler(Network.CLIENT_MSG_ID, Network.MessageHandler);
+                        MyAPIGateway.Utilities.MessageEntered += MessageEntered;
+                        Logger.WriteLine("Log.txt", "Detected client");
+                    }
+                }
+
+                if (IsOnline && !IsServer)
+                {
+                    Network.SendMessage(new NetMessage(NetCommand.GetAll, "null"));
+                    MyAPIGateway.Utilities.ShowMessage("", "Getting data from server");
                 }
             }
         }
 
+
         /// <summary>
-        /// Unhooks the MessageEntered handler otherwise it persists between sessions
+        /// Triggered on ingame save
+        /// </summary>
+        public override void SaveData()
+        {
+            Storage.Save();
+            base.SaveData();
+        }
+
+        /// <summary>
+        /// Unloads data on game exit
         /// </summary>
         protected override void UnloadData()
         {
             Storage.Save();
             MyAPIGateway.Utilities.MessageEntered -= MessageEntered;
+            Logger.WriteLine("Log.txt", "Unloaded mod");
             base.UnloadData();
         }
     }
