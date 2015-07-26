@@ -1,6 +1,7 @@
 ﻿namespace Jimmacle.Commands
 {
     using Sandbox.ModAPI;
+    using System;
     using System.Collections.Generic;
 
     /// <summary>
@@ -8,136 +9,170 @@
     /// </summary>
     class cmdPerms : ChatCommand
     {
-        public cmdPerms() : base("Permissions", "perms", "Allows management of the permissions system.", "Usage: /perms <add/remove> <group/player/command> <item> [group]") { }
+        public cmdPerms() : base("Permissions", "perms", "Allows management of the permissions system.", 
+            "This command gives access to the permissions system.\n\n" +
+            "/perms <add/remove> <group> <groupname>\n" +
+            "/perms <add/remove> <player> <playername> <groupname>\n" +
+            "/perms <add/remove> <command> <commandname> <groupname>\n\n" +
+            "/perms list: list current setup") { }
 
         public override string Invoke(List<string> parameters)
         {
-            bool add;
-
-            if (Storage.Data == null)
-            {
-                MyAPIGateway.Utilities.TryShowMessage("", "Created new storage instance");
-                Storage.Data = new Data();
-            }
-
             if (parameters.Count == 1)
             {
-                string str = "";
-                foreach (var g in Storage.Data.Perms.Groups)
-                {
-                    str += g.Name + ":\n- Commands:\n";
-                    foreach (var c in g.Commands)
-                    {
-                        str += "- - " + c + "\n";
-                    }
-                    str += "- Members:\n";
-                    foreach (var m in g.Members)
-                    {
-                        str += "- - " + m.ToString() + "\n";
-                    }
-                    str += "\n";
-                }
-
-                str += "\nAvailable Command Nodes:\n";
-                foreach (var c in Logic.Commands)
-                {
-                    str += "- " + c.Name + "\n";
-                }
-                MyAPIGateway.Utilities.TryShowWindow("Permissions", str);
+                MyAPIGateway.Utilities.TryShowWindow(this.Name, this.LongHelp);
                 return null;
             }
 
-            if (parameters.Contains("add"))
+            //get all the needed information from the command
+            //
+            bool add = true;
+            
+            //decide whether to add or remove
+            //
+            if (parameters[1] == "add")
             {
                 add = true;
             }
-            else if (parameters.Contains("remove"))
+            else if (parameters[1] == "remove")
             {
                 add = false;
             }
+            else if (parameters[1] == "list")
+            {
+                ListPerms();
+                return null;
+            }
+
+            //decide what to add or remove
+            //
+            string type = parameters[2];
+            string targetName = parameters[3];
+            string groupName;
+
+            switch (type)
+            {
+                case "group":
+                    return EditGroups(add, targetName);
+
+                case "player":
+                    groupName = parameters[4];
+                    return EditPlayers(add, targetName, groupName);
+
+                case "command":
+                    groupName = parameters[4];
+                    return EditCommands(add, targetName, groupName);
+            }
+
+            //save locally or sync with other players (logic is in the called methods)
+            //
+            Storage.Save();
+            Network.SendMessage(new NetMessage(NetCommand.SyncPermissions, MyAPIGateway.Utilities.SerializeToXML<PermissionGroups>(Storage.Data.Perms)));
+            return null;
+        }
+
+        private string EditGroups(bool add, string targetName)
+        {
+            if (add)
+            {
+                if (Storage.Data.Perms.Groups.Find(g => g.Name == targetName) == null)
+                {
+                    Storage.Data.Perms.Groups.Add(new PermissionGroup(targetName));
+                }
+                else
+                {
+                    return "Group already exists";
+                }
+            }
             else
             {
-                return "Add/remove not specified";
-            }
-
-            if (parameters.Contains("group"))
-            {
-                if (parameters.Count < 4)
+                if (Storage.Data.Perms.Groups.Find(g => g.Name == targetName) == null)
                 {
-                    return "Not enough parameters.";
+                    return "Group doesn't exist";
                 }
-
-                PermissionGroup group = Storage.Data.Perms.Groups.Find(g => g.Name == parameters[3]);
-                if (group == null && add == true && Storage.Data.Perms.Groups.Find(g => g.Name == parameters[3]) == null)
+                else
                 {
-                    Storage.Data.Perms.Groups.Add(new PermissionGroup(parameters[3]));
-                }
-                else if (group != null && add == false)
-                {
-                    Storage.Data.Perms.Groups.Remove(group);
+                    Storage.Data.Perms.Groups.RemoveAll(g => g.Name == targetName);
                 }
             }
-            if (parameters.Contains("command"))
+            return null;
+        }
+
+        private string EditPlayers(bool add, string targetName, string groupName)
+        {
+            PermissionGroup group = Storage.Data.Perms.Groups.Find(g => g.Name == groupName);
+            IMyIdentity identity = Utilities.GetIdentity(targetName);
+
+            if (add)
             {
-                if (parameters.Count < 5)
+                if (group.Members.Contains(identity.IdentityId))
                 {
-                    return "Not enough parameters.";
+                    return "Player is already in group";
                 }
-
-                ChatCommand command = Logic.Commands.Find(c => c.Name == parameters[3]);
-                PermissionGroup group = Storage.Data.Perms.Groups.Find(g => g.Name == parameters[4]);
-                if (command == null)
+                else
                 {
-                    return "Command not found.";
+                    group.Members.Add(identity.IdentityId);
                 }
-
-                if (group == null)
+            }
+            else
+            {
+                if (group.Members.Contains(identity.IdentityId))
                 {
-                    return "Group not found.";
+                    group.Members.Remove(identity.IdentityId);
                 }
+                else
+                {
+                    return "Player is not in group";
+                }
+            }
+            return null;
+        }
 
-                if (add == true && !group.Commands.Contains(command.Name))
+        private string EditCommands(bool add, string targetName, string groupName)
+        {
+            PermissionGroup group = Storage.Data.Perms.Groups.Find(g => g.Name == groupName);
+            ChatCommand command = Logic.Commands.Find(c => c.Name == targetName);
+
+            if (add)
+            {
+                if (group.Commands.Contains(command.Name))
+                {
+                    return "Command is already in group";
+                }
+                else
                 {
                     group.Commands.Add(command.Name);
                 }
-                else if (add == false)
-                {
-                    group.Commands.RemoveAll(c => c == command.Name);
-                }
             }
-            if (parameters.Contains("player"))
+            else
             {
-                if (parameters.Count < 5)
+                if (group.Commands.Contains(command.Name))
                 {
-                    return "Not enough parameters.";
+                    group.Commands.Remove(command.Name);
                 }
-
-                List<IMyIdentity> players = new List<IMyIdentity>();
-                MyAPIGateway.Multiplayer.Players.GetAllIdentites(players);
-                IMyIdentity id = players.Find(i => i.DisplayName == parameters[3]);
-                PermissionGroup group = Storage.Data.Perms.Groups.Find(g => g.Name == parameters[4]);
-                if (id == null)
+                else
                 {
-                    return "Player not found.";
-                }
-
-                if (group == null)
-                {
-                    return "Group not found.";
-                }
-
-                if (add == true && !group.Members.Contains(id.IdentityId))
-                {
-                    group.Members.Add(id.IdentityId);
-                }
-                else if (add == false)
-                {
-                    group.Members.RemoveAll(i => i == id.IdentityId);
+                    return "Command is not in group";
                 }
             }
-
-            Network.SendMessage(new NetMessage(NetCommand.SyncPermissions, MyAPIGateway.Utilities.SerializeToXML<PermissionGroups>(Storage.Data.Perms)));
             return null;
+        }
+
+        private void ListPerms()
+        {
+            string body = "";
+
+            foreach(var group in Storage.Data.Perms.Groups)
+            {
+                List<string> names = new List<string>();
+                foreach (long id in group.Members)
+                {
+                    names.Add(Utilities.GetIdentity(id).DisplayName);
+                }
+                body += String.Format("{0}:\n- Members:\n- - {1}\n- Commands:\n- - {2}\n\n", group.Name, String.Join("\n- - ", names), String.Join("\n- - ", group.Commands));
+            }
+
+            MyAPIGateway.Utilities.TryShowWindow("Permissions", body);
         }
     }
 }

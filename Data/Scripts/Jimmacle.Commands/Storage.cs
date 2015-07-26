@@ -81,7 +81,6 @@
 
         public Data()
         {
-            MyAPIGateway.Utilities.TryShowMessage("", "Generating new mod data");
             Perms = new PermissionGroups();
             Grids = new GridInfo();
         }
@@ -132,10 +131,10 @@
         public long Id;
         public bool Safe;
 
-        public Grid(long id)
+        public Grid(long id, bool safe)
         {
             Id = id;
-            Safe = false;
+            Safe = safe;
         }
 
         public Grid()

@@ -109,6 +109,9 @@
     <Compile Include="Storage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="cmdAntigrief.cs" />
+    <Compile Include="Antigrief.cs" />
+    <Compile Include="cmdHelp.cs" />
+    <Compile Include="Utilities.cs" />
     <Compile Include="Template.cs" />
   </ItemGroup>
   <ItemGroup />

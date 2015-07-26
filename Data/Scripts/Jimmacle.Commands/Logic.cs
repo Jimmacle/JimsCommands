@@ -27,6 +27,7 @@
         {
             new cmdPerms(),
             new cmdAntigrief(),
+            new cmdHelp(),
         };
 
         private bool init = false;
@@ -40,16 +41,16 @@
         /// <param name="sendToOthers"></param>
         public static void MessageEntered(string messageText, ref bool sendToOthers)
         {
-            string[] messageSplit = messageText.Split(' ');
-            if (messageSplit.Length == 0)
-                messageSplit = new string[] { messageText };
-
             if (messageText.StartsWith("/"))
             {
 
                 //parse command into sections
                 //
                 var matches = Regex.Matches(messageText, "(\\w+|\".+\")");
+                if (matches.Count == 0)
+                {
+                    return;
+                }
                 List<string> parameters = new List<string>();
                 foreach (var m in matches)
                 {
@@ -99,6 +100,7 @@
             //
             if (!init && MyAPIGateway.Session != null)
             {
+                MyAPIGateway.Session.DamageSystem.RegisterBeforeDamageHandler(0, Antigrief.DamageHandler);
                 init = true;
                 Storage.Load();
 
@@ -129,7 +131,6 @@
                     {
                         IsServer = true;
                         MyAPIGateway.Multiplayer.RegisterMessageHandler(Network.SERVER_MSG_ID, Network.MessageHandler);
-                        MyAPIGateway.Multiplayer.RegisterMessageHandler(Network.CLIENT_MSG_ID, Network.MessageHandler);
                         MyAPIGateway.Utilities.MessageEntered += MessageEntered;
                         Logger.WriteLine("Log.txt", "Detected host of game");
                     }
@@ -166,6 +167,10 @@
         /// </summary>
         protected override void UnloadData()
         {
+            try { MyAPIGateway.Multiplayer.UnregisterMessageHandler(Network.CLIENT_MSG_ID, Network.MessageHandler); }
+            catch { }
+            try { MyAPIGateway.Multiplayer.UnregisterMessageHandler(Network.SERVER_MSG_ID, Network.MessageHandler); }
+            catch { }
             Storage.Save();
             MyAPIGateway.Utilities.MessageEntered -= MessageEntered;
             Logger.WriteLine("Log.txt", "Unloaded mod");
